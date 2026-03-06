@@ -33,6 +33,7 @@ const CONFIG_FILE = "./config.json";
 
 let config = {
   source: null,
+  sourceCategory: null,
   target: null,
   paused: false,
 };
@@ -116,6 +117,17 @@ async function registerCommands() {
             o.setName("target").setDescription("Target channel").setRequired(true)
           )
       )
+      .addSubcommand((s) =>
+        s
+        .setName("setcategory")
+        .setDescription("Mirror all channels in a category to the target channel")
+        .addChannelOption((o) =>
+          o.setName("category").setDescription("Source category").setRequired(true)
+        )
+        .addChannelOption((o) =>
+          o.setName("target").setDescription("Target channel").setRequired(true)
+        )
+      )
       .toJSON(),
 
     new SlashCommandBuilder()
@@ -129,6 +141,7 @@ async function registerCommands() {
       .setDescription("Resume mirroring")
       .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
       .toJSON(),
+    
   ];
 
   const rest = new REST({ version: "10" }).setToken(BOT_TOKEN);
@@ -152,6 +165,16 @@ function buildFiles(msg) {
   return [...msg.attachments.values()].map((a) => a.url);
 }
 
+function isFromConfiguredSource(msg) {
+  // Single channel mode
+  if (config.source && msg.channelId === config.source) return true;
+
+  // Category mode (text channels under a category)
+  if (config.sourceCategory && msg.channel?.parentId === config.sourceCategory) return true;
+
+  return false;
+}
+
 /* ===============================
    Interaction handlers
 ================================= */
@@ -164,9 +187,9 @@ client.on("interactionCreate", async (interaction) => {
     if (sub === "show") {
       await interaction.reply({
         content:
-          `Paused: **${config.paused ? "yes" : "no"}**\n` +
           `Source: ${config.source ? `<#${config.source}>` : "(not set)"}\n` +
-          `Target: ${config.target ? `<#${config.target}>` : "(not set)"}`,
+          `Source Category: ${config.sourceCategory ? `<#${config.sourceCategory}>` : "(not set)"}\n` +
+          `Target: ${config.target ? `<#${config.target}>` : "(not set)"}`
         ephemeral: true,
       });
       return;
@@ -182,6 +205,22 @@ client.on("interactionCreate", async (interaction) => {
 
       await interaction.reply({
         content: `Updated.\nSource → ${source}\nTarget → ${target}`,
+        ephemeral: true,
+      });
+      return;
+    }
+    if (sub === "setcategory") {
+      const category = interaction.options.getChannel("category");
+      const target = interaction.options.getChannel("target");
+
+      // Store category as the source mode; clear single-channel source
+      config.sourceCategory = category.id;
+      config.source = null;
+      config.target = target.id;
+      saveConfig();
+
+      await interaction.reply({
+        content: `Updated.\nSource Category → ${category}\nTarget → ${target}`,
         ephemeral: true,
       });
       return;
@@ -210,8 +249,8 @@ client.on("messageCreate", async (msg) => {
   try {
     if (msg.author.bot) return;
     if (config.paused) return;
-    if (!config.source || !config.target) return;
-    if (msg.channelId !== config.source) return;
+    if ((!config.source && !config.sourceCategory) || !config.target) return;
+    if (!isFromConfiguredSource(msg)) return;
 
     const target = await client.channels.fetch(config.target);
 
@@ -231,8 +270,8 @@ client.on("messageCreate", async (msg) => {
 client.on("messageUpdate", async (_oldMsg, newMsg) => {
   try {
     if (config.paused) return;
-    if (!config.source || !config.target) return;
-    if (newMsg.channelId !== config.source) return;
+    if ((!config.source && !config.sourceCategory) || !config.target) return;
+    if (!isFromConfiguredSource(msg)) return;
 
     if (newMsg.partial) newMsg = await newMsg.fetch();
     if (newMsg.author?.bot) return;
@@ -271,8 +310,8 @@ client.on("messageUpdate", async (_oldMsg, newMsg) => {
 client.on("messageDelete", async (msg) => {
   try {
     if (config.paused) return;
-    if (!config.source || !config.target) return;
-    if (msg.channelId !== config.source) return;
+    if ((!config.source && !config.sourceCategory) || !config.target) return;
+    if (!isFromConfiguredSource(msg)) return;
 
     if (msg.partial) msg = await msg.fetch().catch(() => null);
 
