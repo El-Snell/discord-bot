@@ -119,14 +119,14 @@ async function registerCommands() {
       )
       .addSubcommand((s) =>
         s
-        .setName("setcategory")
-        .setDescription("Mirror all channels in a category to the target channel")
-        .addChannelOption((o) =>
-          o.setName("category").setDescription("Source category").setRequired(true)
-        )
-        .addChannelOption((o) =>
-          o.setName("target").setDescription("Target channel").setRequired(true)
-        )
+          .setName("setcategory")
+          .setDescription("Mirror all channels in a category to the target channel")
+          .addChannelOption((o) =>
+            o.setName("category").setDescription("Source category").setRequired(true)
+          )
+          .addChannelOption((o) =>
+            o.setName("target").setDescription("Target channel").setRequired(true)
+          )
       )
       .toJSON(),
 
@@ -189,7 +189,7 @@ client.on("interactionCreate", async (interaction) => {
         content:
           `Source: ${config.source ? `<#${config.source}>` : "(not set)"}\n` +
           `Source Category: ${config.sourceCategory ? `<#${config.sourceCategory}>` : "(not set)"}\n` +
-          `Target: ${config.target ? `<#${config.target}>` : "(not set)"}`
+          `Target: ${config.target ? `<#${config.target}>` : "(not set)"}`,
         ephemeral: true,
       });
       return;
